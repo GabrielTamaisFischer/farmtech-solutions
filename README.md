@@ -50,4 +50,3 @@ Com apenas uma observação, o desvio padrão amostral em R é NA.
 - Trello: https://trello.com/c/azl166Md/4-aplica%C3%A7%C3%A3o-em-r-e-estat%C3%ADstica
 - Artigo: https://www.alice.cnptia.embrapa.br/alice/bitstream/doc/1003485/1/CAP8.pdf
 - API opcional: https://open-meteo.com/en/docs
-
