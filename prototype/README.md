@@ -29,6 +29,8 @@ farmtech-platform/
 
 Os números da demonstração refletem os dois registros de café e cana do protótipo Python/R. Eles são sempre marcados na interface como “Dados de demonstração”. Área, volume, média, mediana e desvio padrão são apresentados de forma descritiva; o front-end não substitui a metodologia do R.
 
+No dashboard, o bloco “Gerenciamento de dados” cobre os fluxos pedidos no menu Python: cadastrar, listar, atualizar, excluir e exportar os registros para CSV. A área é calculada por comprimento × largura, e o volume de insumo por dosagem × comprimento de rua × número de ruas ÷ 1.000. Como esta é uma demonstração estática, os registros novos ficam apenas na sessão atual do navegador.
+
 Os links de repositório ainda não foram preenchidos no briefing. Por isso, apenas o repositório base conhecido é ativo e os demais aparecem como “Link não informado”.
 
 Para adicionar uma análise, inclua um item em `analyses` com `id`, `title`, `description`, `method`, `variables` e `interpretation`; a página de análises o renderiza automaticamente. Para adicionar um gráfico, crie uma função SVG em `js/app.js`, passe os dados filtrados e insira o resultado no card correspondente.
@@ -43,3 +45,4 @@ O dashboard possui loading inicial por skeleton, empty state para filtros sem da
 - Validar a chamada Open-Meteo no RStudio/Posit Cloud com `httr` e `jsonlite` instalados.
 - Confirmar os links do GitHub da equipe e usar os botões ativos de fonte.
 - Gravar o vídeo de até cinco minutos e incluir o link não listado no pacote final.
+

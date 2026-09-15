@@ -65,6 +65,20 @@ h3 { margin-bottom: 5px; font-size: 16px; }
 select, input { width: 100%; height: 38px; padding: 0 11px; color: var(--ink); background: var(--white); border: 1px solid var(--line); border-radius: 8px; }
 select:disabled { color: #a0a5a1; background: #f8f9f7; cursor: not-allowed; }
 .filter-note { align-self: center; margin-left: auto; color: #a0a5a1; font-size: 11px; }
+.management-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 16px; margin-bottom: 16px; }
+.form-card, .records-card { min-width: 0; padding: 22px; }
+.form-card .card-heading, .records-card .card-heading { margin-bottom: 17px; }
+.form-card .card-heading p:not(.eyebrow), .records-card .card-heading p:not(.eyebrow) { margin-bottom: 0; }
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 17px; }
+.form-feedback { color: var(--green-2); font-size: 11px; }
+.record-list { overflow-x: auto; }
+.record-item { display: grid; grid-template-columns: minmax(100px, 1fr) 1fr auto; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); }
+.record-item:first-child { border-top: 0; }
+.record-main strong { display: block; margin-bottom: 2px; font-size: 12px; }
+.record-main small, .record-meta { color: var(--muted); font-size: 11px; }
+.record-actions { display: flex; gap: 6px; }
+.record-actions .button { min-height: 30px; padding: 0 8px; font-size: 11px; }
 
 .grid { display: grid; gap: 16px; }
 .kpi-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
@@ -170,7 +184,7 @@ tbody tr:hover { background: #fbfcfa; }
   .filter-bar { display: grid; grid-template-columns: 1fr 1fr; }
   .filter-group { min-width: 0; }
   .filter-note { grid-column: 1 / -1; margin: 3px 0 0; }
-  .two-col, .about-grid, .analysis-copy { grid-template-columns: 1fr; }
+  .two-col, .about-grid, .analysis-copy, .management-grid { grid-template-columns: 1fr; }
   .three-col, .insights-grid { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: repeat(2, 1fr); }
   .analysis-top { display: block; }
@@ -183,3 +197,4 @@ tbody tr:hover { background: #fbfcfa; }
   .filter-bar { grid-template-columns: 1fr; }
   .filter-note { grid-column: auto; }
 }
+

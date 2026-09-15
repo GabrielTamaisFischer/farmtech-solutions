@@ -21,6 +21,8 @@ window.FARMTECH_DATA = {
       culturaShort: "Cana",
       areaHa: 10,
       areaM2: 100000,
+      comprimentoTerrenoM: 500,
+      larguraTerrenoM: 200,
       qtdRuas: 133,
       comprimentoRuaM: 500,
       produto: "Herbicida",
@@ -35,6 +37,8 @@ window.FARMTECH_DATA = {
       culturaShort: "Café",
       areaHa: 6,
       areaM2: 60000,
+      comprimentoTerrenoM: 300,
+      larguraTerrenoM: 200,
       qtdRuas: 57,
       comprimentoRuaM: 300,
       produto: "Fosfato",
@@ -69,3 +73,4 @@ window.FARMTECH_DATA = {
     { label: "Repositório R 4", url: null, available: false }
   ]
 };
+

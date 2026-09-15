@@ -128,6 +128,53 @@
     ].map(([index, title, text]) => `<article class="card insight-card"><div class="insight-index">${index} · ${title}</div><p>${text}</p></article>`).join('') : `<div class="card empty-state" style="grid-column:1/-1"><strong>Nenhum dado encontrado para os filtros selecionados.</strong>Tente selecionar “Todas”.</div>`;
   }
 
+  function renderManagement() {
+    const list = $('#record-list');
+    if (!list) return;
+    list.innerHTML = records.length ? records.map(record => `<div class="record-item"><div class="record-main"><strong><span class="culture-pill">${record.culturaShort}</span> ${record.produto}</strong><small>${fmt(record.areaM2)} m² · ${fmt(record.areaHa, 1)} ha</small></div><div class="record-meta">${fmt(record.qtdRuas)} ruas × ${fmt(record.comprimentoRuaM)} m · ${fmt(record.volumeTotalL)} L</div><div class="record-actions"><button class="button" type="button" data-action="edit" data-id="${record.id}">Editar</button><button class="button" type="button" data-action="delete" data-id="${record.id}">Excluir</button></div></div>`).join('') : `<div class="empty-state"><strong>Nenhum registro cadastrado.</strong>Use o formulário para adicionar a primeira cultura.</div>`;
+    $$('[data-action="edit"]', list).forEach(button => button.addEventListener('click', () => startEdit(button.dataset.id)));
+    $$('[data-action="delete"]', list).forEach(button => button.addEventListener('click', () => deleteRecord(button.dataset.id)));
+  }
+
+  function readNumber(id) {
+    const value = Number($(id).value);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  function resetRecordForm() {
+    const form = $('#record-form'); if (!form) return;
+    form.reset(); $('#record-id').value = ''; $('#form-title').textContent = 'Cadastrar cultura'; $('#save-record').textContent = 'Adicionar registro'; $('#cancel-edit').hidden = true; $('#form-feedback').textContent = '';
+  }
+
+  function startEdit(id) {
+    const record = records.find(item => item.id === id); if (!record) return;
+    $('#record-id').value = record.id; $('#record-culture').value = record.cultura; $('#record-product').value = record.produto; $('#record-length').value = record.comprimentoTerrenoM || Math.sqrt(record.areaM2); $('#record-width').value = record.larguraTerrenoM || Math.sqrt(record.areaM2); $('#record-streets').value = record.qtdRuas; $('#record-street-length').value = record.comprimentoRuaM; $('#record-dosage').value = record.dosagemMlM; $('#form-title').textContent = 'Atualizar cultura'; $('#save-record').textContent = 'Salvar alterações'; $('#cancel-edit').hidden = false; $('#record-product').focus(); showToast(`Editando o registro de ${record.culturaShort}.`);
+  }
+
+  function deleteRecord(id) {
+    const index = records.findIndex(item => item.id === id); if (index < 0) return;
+    const [removed] = records.splice(index, 1); renderManagement(); renderDashboard(); resetRecordForm(); showToast(`${removed.culturaShort} removida da sessão.`);
+  }
+
+  function exportRecords() {
+    const header = ['cultura', 'area_m2', 'area_ha', 'qtd_ruas', 'comprimento_rua_m', 'produto', 'dosagem_ml_por_metro', 'volume_total_L'];
+    const lines = records.map(record => [record.cultura, record.areaM2, record.areaHa, record.qtdRuas, record.comprimentoRuaM, record.produto, record.dosagemMlM, record.volumeTotalL].map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','));
+    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'farmtech_registros.csv'; link.click(); URL.revokeObjectURL(url); showToast('CSV exportado com sucesso.');
+  }
+
+  function wireManagement() {
+    const form = $('#record-form'); if (!form) return;
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const length = readNumber('#record-length'), width = readNumber('#record-width'), streets = readNumber('#record-streets'), streetLength = readNumber('#record-street-length'), dosage = readNumber('#record-dosage'), product = $('#record-product').value.trim();
+      if ([length, width, streets, streetLength, dosage].some(value => value === null) || !product) { $('#form-feedback').textContent = 'Preencha todos os campos com valores positivos.'; return; }
+      const culture = $('#record-culture').value; const areaM2 = length * width; const existingId = $('#record-id').value; const record = { id: existingId || `${culture.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`, cultura: culture, culturaShort: culture === 'Café' ? 'Café' : 'Cana', areaHa: areaM2 / 10000, areaM2, comprimentoTerrenoM: length, larguraTerrenoM: width, qtdRuas: streets, comprimentoRuaM: streetLength, produto: product, volumeTotalL: dosage * streetLength * streets / 1000, dosagemMlM: dosage, regiao: null, periodo: 'Registro atual' };
+      if (existingId) { const index = records.findIndex(item => item.id === existingId); if (index >= 0) records[index] = record; showToast('Registro atualizado e indicadores recalculados.'); } else { records.push(record); showToast('Cultura cadastrada e adicionada aos indicadores.'); }
+      renderManagement(); renderDashboard(); resetRecordForm();
+    });
+    $('#cancel-edit')?.addEventListener('click', resetRecordForm); $('#export-csv')?.addEventListener('click', exportRecords); renderManagement();
+  }
+
   function renderStats() {
     const container = $('#analysis-list');
     if (!container) return;
@@ -162,7 +209,7 @@
   function init() {
     setupShell();
     document.documentElement.dataset.mock = String(data.meta.isMock);
-    if (page === 'dashboard') { wireFilters(); renderDashboard(); }
+    if (page === 'dashboard') { wireFilters(); wireManagement(); renderDashboard(); }
     if (page === 'analysis' || page === 'stats') renderStats();
     if (page === 'data') renderDataTable();
     if (page === 'about') renderAbout();
@@ -170,3 +217,4 @@
   }
   init();
 })();
+
