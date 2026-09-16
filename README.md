@@ -22,7 +22,7 @@ Rscript estatisticas.R
 Rscript meteorologia.R
 ```
 
-No RStudio/Posit Cloud, abra a pasta do projeto e execute `source("estatisticas.R")` ou `source("meteorologia.R")`. O Python usa apenas a biblioteca padrão e o R usa `jsonlite` para consultar o Open-Meteo. A consulta usa Betim, MG, nas coordenadas do exemplo do projeto. Falhas de rede são informadas no terminal.
+No RStudio/Posit Cloud, abra a pasta do projeto e execute `source("estatisticas.R")` ou `source("meteorologia.R")`. O Python usa apenas a biblioteca padrão e o R usa `jsonlite` para consultar o Open-Meteo. A consulta usa Itapecerica da Serra, SP, nas coordenadas do exemplo do projeto. Falhas de rede são informadas no terminal.
 
 ## Cálculos
 

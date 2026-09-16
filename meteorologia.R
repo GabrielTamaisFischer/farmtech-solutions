@@ -19,9 +19,9 @@ if (!requireNamespace("jsonlite", quietly = TRUE)) {
   )
 }
 
-latitude <- -19.9678
-longitude <- -44.1983
-location <- "Betim, MG"
+latitude <- -23.71694444
+longitude <- -46.84916667
+location <- "Itapecerica da Serra, SP"
 api_url <- paste0(
   "https://api.open-meteo.com/v1/forecast?latitude=", latitude,
   "&longitude=", longitude,
