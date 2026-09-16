@@ -11,9 +11,10 @@
 - Local URL: http://127.0.0.1:4173/index.html
 - Published URL: https://farmtech-solutions-demo.vercel.app/
 - Browser-rendered evidence: Codex in-app browser screenshots captured during this QA run for the Dashboard, Dados table, and wizard confirmation.
-- Implementation capture viewport: 1280 × 720 CSS px, device scale factor 1.
-- Source capture viewport: 1280 × 720 CSS px for the desktop source comparison; the source route was also checked at its available responsive viewport (756 × 912 CSS px).
-- Pixel normalization: both desktop captures were reviewed at the same CSS viewport and density; browser chrome was excluded from the comparison.
+- Desktop implementation capture viewport: 1280 × 720 CSS px, device scale factor 1.
+- Desktop source capture viewport: 1280 × 720 CSS px; browser chrome was excluded from the comparison.
+- Paired responsive capture viewport: 756 × 912 CSS px for both the source route and the published implementation, device scale factor 1.
+- Pixel normalization: desktop and responsive comparisons used matching CSS viewports and density; browser chrome was excluded from the comparison.
 
 ## States and interactions checked
 
