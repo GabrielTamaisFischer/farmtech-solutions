@@ -1,6 +1,7 @@
 (function () {
   const source = window.FARMTECH_DATA;
   const page = document.body.dataset.page || 'dashboard';
+  const climateApiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=-19.9678&longitude=-44.1983&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&timezone=America%2FSao_Paulo';
   const storageKey = 'farmtech-session-records-v2';
   const initialRecords = source.records.map(record => ({ ...record }));
   let records = loadRecords();
@@ -45,6 +46,29 @@
     $$('.menu-toggle').forEach(button => button.addEventListener('click', () => sidebar?.classList.add('is-open')));
     $$('.sidebar-close').forEach(button => button.addEventListener('click', () => sidebar?.classList.remove('is-open')));
     $$('.nav-link').forEach(link => link.addEventListener('click', () => sidebar?.classList.remove('is-open')));
+  }
+
+  function loadClimate() {
+    const badge = $('#clima-badge');
+    const temperature = $('#clima-temp');
+    const precipitation = $('#clima-precip');
+    const meta = $('#clima-meta');
+    if (!badge || !temperature || !precipitation || !meta) return;
+    fetch(climateApiUrl, { headers: { Accept: 'application/json' } })
+      .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+      .then(payload => {
+        const current = payload.current || {};
+        temperature.textContent = `${fmt(current.temperature_2m, 1)} °C`;
+        precipitation.textContent = `${fmt(current.precipitation, 1)} mm`;
+        badge.className = 'badge badge-real';
+        badge.textContent = 'API ao vivo';
+        meta.textContent = `Open-Meteo · Betim, MG · ${current.time || 'atualizado agora'}`;
+      })
+      .catch(() => {
+        badge.className = 'badge badge-mock';
+        badge.textContent = 'Indisponível';
+        meta.textContent = 'A API não respondeu. Execute meteorologia.R para consultar no terminal.';
+      });
   }
 
   function filteredRecords() { return records.filter(record => cultureFilter === 'Todas' || record.culturaShort === cultureFilter); }
@@ -119,6 +143,7 @@
     $$('.metric-btn').forEach(button => button.addEventListener('click', () => { chartMetric = button.dataset.metric; renderDashboard(); }));
     $('#refresh-data')?.addEventListener('click', event => { const button = event.currentTarget; button.classList.add('is-loading'); setState('#dashboard-state', 'Indicadores recalculados a partir dos registros da sessão.', 'success'); setTimeout(() => button.classList.remove('is-loading'), 500); renderDashboard(); });
     renderDashboard();
+    loadClimate();
   }
 
   function readWizard() {
