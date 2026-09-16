@@ -1,220 +1,185 @@
 (function () {
-  const data = window.FARMTECH_DATA;
+  const source = window.FARMTECH_DATA;
   const page = document.body.dataset.page || 'dashboard';
-  const records = data.records;
-  let selectedCulture = 'Todas';
-  let selectedIndicator = 'Todos';
+  const storageKey = 'farmtech-session-records-v2';
+  const initialRecords = source.records.map(record => ({ ...record }));
+  let records = loadRecords();
+  let cultureFilter = 'Todas';
+  let chartMetric = 'area';
+  let wizardStep = 1;
+  let editingId = null;
   let toastTimer;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const fmt = (number, digits = 0) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(number);
-  const sum = (values) => values.reduce((acc, value) => acc + value, 0);
-  const mean = (values) => values.length ? sum(values) / values.length : 0;
-  const median = (values) => {
-    if (!values.length) return 0;
-    const sorted = [...values].sort((a, b) => a - b);
-    const middle = Math.floor(sorted.length / 2);
-    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-  };
-  const std = (values) => values.length > 1 ? Math.sqrt(sum(values.map(v => (v - mean(values)) ** 2)) / (values.length - 1)) : 0;
-  const metric = (record) => selectedIndicator === 'Área' ? record.areaHa : selectedIndicator === 'Insumos' ? record.volumeTotalL : record.areaHa;
-  const metricLabel = () => selectedIndicator === 'Área' ? 'Área (ha)' : selectedIndicator === 'Insumos' ? 'Volume total (L)' : 'Área (ha)';
-  const filtered = () => records.filter(record => selectedCulture === 'Todas' || record.culturaShort === selectedCulture);
+  const number = value => Number(value);
+  const fmt = (value, digits = 0) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Number(value) || 0);
+  const sum = values => values.reduce((total, value) => total + value, 0);
+  const mean = values => values.length ? sum(values) / values.length : 0;
+  const std = values => values.length > 1 ? Math.sqrt(sum(values.map(value => (value - mean(values)) ** 2)) / (values.length - 1)) : 0;
+  const median = values => { if (!values.length) return 0; const sorted = [...values].sort((a, b) => a - b); const middle = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2; };
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+
+  function loadRecords() {
+    try { const saved = JSON.parse(localStorage.getItem(storageKey) || 'null'); return Array.isArray(saved) ? saved : initialRecords; } catch { return initialRecords; }
+  }
+
+  function saveRecords() { localStorage.setItem(storageKey, JSON.stringify(records)); }
 
   function showToast(message) {
-    const toast = $('#toast');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+    const toast = $('#toast'); if (!toast) return;
+    toast.textContent = message; toast.classList.add('is-visible'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2800);
+  }
+
+  function setState(selector, message, state = 'success') {
+    const banner = $(selector); if (!banner) return;
+    banner.textContent = message; banner.className = `state-banner is-visible state-${state}`;
+    clearTimeout(banner._timer); banner._timer = setTimeout(() => { banner.className = 'state-banner'; }, 4000);
   }
 
   function setupShell() {
-    const nav = $('#side-nav');
-    if (nav) nav.innerHTML = [
-      ['dashboard.html', '⌂', 'Dashboard', 'dashboard'],
-      ['analysis.html', '◌', 'Análises', 'analysis'],
-      ['analysis.html#estatisticas', '∿', 'Estatísticas', 'stats'],
-      ['data.html', '▤', 'Dados', 'data'],
-      ['about.html', 'i', 'Sobre o projeto', 'about']
-    ].map(([href, icon, label, key]) => `<a class="nav-link ${page === key ? 'active' : ''}" href="${href}" ${page === key ? 'aria-current="page"' : ''}><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</a>`).join('');
-    $$('.mobile-menu').forEach(button => button.addEventListener('click', () => document.body.classList.toggle('menu-open')));
-    $$('.sidebar a').forEach(link => link.addEventListener('click', () => document.body.classList.remove('menu-open')));
-    const status = $('.data-status');
-    if (status) status.innerHTML = `<span class="status-dot" aria-hidden="true"></span>${data.meta.isMock ? 'Demonstração conectada' : 'Dados atualizados'}`;
-    const updated = $('.last-update');
-    if (updated) updated.textContent = `Última atualização · ${data.meta.updatedAt}`;
+    const update = $('#sidebar-update');
+    if (update) update.textContent = `Última atualização · ${source.meta.updatedAt}`;
+    const sidebar = $('#sidebar');
+    $$('.menu-toggle').forEach(button => button.addEventListener('click', () => sidebar?.classList.add('is-open')));
+    $$('.sidebar-close').forEach(button => button.addEventListener('click', () => sidebar?.classList.remove('is-open')));
+    $$('.nav-link').forEach(link => link.addEventListener('click', () => sidebar?.classList.remove('is-open')));
   }
 
-  function selectOptions(selector, options, initial = '') {
-    const element = $(selector);
-    if (!element) return;
-    element.innerHTML = options.map(value => `<option value="${value}">${value}</option>`).join('');
-    element.value = initial;
-  }
+  function filteredRecords() { return records.filter(record => cultureFilter === 'Todas' || record.culturaShort === cultureFilter); }
 
-  function wireFilters() {
-    const culture = $('#culture-filter');
-    const indicator = $('#indicator-filter');
-    if (!culture) return;
-    selectOptions('#culture-filter', ['Todas', ...new Set(records.map(record => record.culturaShort))], selectedCulture);
-    selectOptions('#indicator-filter', ['Todos', 'Área', 'Insumos'], selectedIndicator);
-    culture.addEventListener('change', event => { selectedCulture = event.target.value; renderDashboard(); showToast('Filtros aplicados aos indicadores.'); });
-    indicator.addEventListener('change', event => { selectedIndicator = event.target.value; renderDashboard(); showToast('Indicador atualizado.'); });
-    const refresh = $('#refresh-data');
-    if (refresh) refresh.addEventListener('click', () => { refresh.classList.add('is-refreshing'); setTimeout(() => { refresh.classList.remove('is-refreshing'); showToast('Dados atualizados.'); }, 500); });
+  function cultureOptions() {
+    return ['Todas', ...new Set(records.map(record => record.culturaShort))];
   }
 
   function renderKpis() {
-    const target = $('#kpi-grid');
-    if (!target) return;
-    const rows = filtered();
-    if (!rows.length) { target.innerHTML = `<div class="card empty-state" style="grid-column:1/-1"><strong>Nenhum dado encontrado</strong>Escolha outra cultura para visualizar os indicadores.</div>`; return; }
+    const target = $('#kpi-grid'); if (!target) return;
+    const rows = filteredRecords();
+    if (!rows.length) { target.innerHTML = '<div class="state-banner is-visible state-empty" style="grid-column:1/-1">Nenhum registro encontrado para este filtro.</div>'; return; }
     const area = sum(rows.map(row => row.areaHa));
     const volume = sum(rows.map(row => row.volumeTotalL));
-    const values = rows.map(metric);
-    const cards = [
-      ['Registros', fmt(rows.length), 'no recorte selecionado', 'neutral'],
-      ['Área monitorada', `${fmt(area)} ha`, `${fmt(mean(rows.map(row => row.areaHa)), 1)} ha em média`, ''],
-      ['Insumos estimados', `${fmt(volume)} L`, `${fmt(mean(rows.map(row => row.volumeTotalL)))} L em média`, ''],
-      [metricLabel(), `${fmt(mean(values), selectedIndicator === 'Insumos' ? 0 : 1)} ${selectedIndicator === 'Insumos' ? 'L' : 'ha'}`, `desvio de ${fmt(std(values), selectedIndicator === 'Insumos' ? 0 : 2)}`, 'neutral']
-    ];
-    target.innerHTML = cards.map(([label, value, meta, kind]) => `<article class="card kpi"><span class="kpi-accent"></span><span class="kpi-label">${label}</span><strong class="kpi-value">${value}</strong><span class="kpi-meta ${kind}">${kind ? '—' : '↗'} ${meta}</span></article>`).join('');
-  }
-
-  function svgLineChart(rows) {
-    if (!rows.length) return `<div class="chart-empty"><div><strong>Sem dados para este recorte</strong>Altere os filtros para continuar.</div></div>`;
-    const width = 700, height = 245, pad = { top: 16, right: 18, bottom: 35, left: 42 };
-    const values = rows.map(metric), max = Math.max(...values, 1), min = Math.min(...values, 0), range = max - min || 1;
-    const points = rows.map((row, index) => {
-      const x = pad.left + (index * (width - pad.left - pad.right)) / Math.max(rows.length - 1, 1);
-      const y = height - pad.bottom - ((metric(row) - min) / range) * (height - pad.top - pad.bottom);
-      return { x, y, value: metric(row), label: row.culturaShort };
-    });
-    const line = points.map(point => `${point.x},${point.y}`).join(' ');
-    const area = `${pad.left},${height - pad.bottom} ${line} ${points[points.length - 1].x},${height - pad.bottom}`;
-    const grid = [0, .5, 1].map(step => {
-      const y = pad.top + step * (height - pad.top - pad.bottom);
-      const value = max - step * range;
-      return `<line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}" stroke="#e4e7e3"/><text x="4" y="${y + 4}" fill="#8c938e" font-size="10">${fmt(value, selectedIndicator === 'Insumos' ? 0 : 1)}</text>`;
-    }).join('');
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico de ${metricLabel()} por cultura">${grid}<polygon points="${area}" fill="#e8efe8" opacity=".7"/><polyline points="${line}" fill="none" stroke="#2f5d3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#fff" stroke="#2f5d3a" stroke-width="3"><title>${p.label}: ${fmt(p.value)} </title></circle><text x="${p.x}" y="${height - 10}" text-anchor="middle" fill="#6b716d" font-size="11">${p.label}</text>`).join('')}</svg>`;
+    const dosage = mean(rows.map(row => row.dosagemMlM));
+    target.innerHTML = [
+      ['Área total plantada', `${fmt(area, 1)} ha`, `${fmt(sum(rows.map(row => row.areaM2)))} m² calculados`, 'up'],
+      ['Volume total de insumo', `${fmt(volume)} L`, `${fmt(rows.length)} ${rows.length === 1 ? 'registro' : 'registros'} no plano`, 'up'],
+      ['Culturas no plano', fmt(new Set(rows.map(row => row.cultura)).size), 'vetores cadastrados', 'flat'],
+      ['Dosagem média aplicada', `${fmt(dosage)} mL/m`, 'por metro de rua', 'flat']
+    ].map(([label, value, meta, type]) => `<article class="card kpi-card"><span class="kpi-label">${label}</span><strong class="kpi-value">${value}</strong><span class="kpi-delta is-${type}">${type === 'up' ? '↗' : '—'} ${meta}</span></article>`).join('');
   }
 
   function svgBarChart(rows) {
-    if (!rows.length) return `<div class="chart-empty"><div><strong>Nenhum dado encontrado</strong>Não há valores neste recorte.</div></div>`;
-    const width = 500, height = 245, max = Math.max(...rows.map(row => row.volumeTotalL), 1), barWidth = Math.min(100, (width - 100) / rows.length - 22);
-    const bars = rows.map((row, index) => {
-      const x = 55 + index * ((width - 90) / rows.length) + 18;
-      const barHeight = row.volumeTotalL / max * 165;
-      const y = 190 - barHeight;
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="5" fill="${index ? '#6f8f72' : '#2f5d3a'}"><title>${row.cultura}: ${fmt(row.volumeTotalL)} L</title></rect><text x="${x + barWidth / 2}" y="210" text-anchor="middle" fill="#6b716d" font-size="11">${row.culturaShort}</text><text x="${x + barWidth / 2}" y="${y - 8}" text-anchor="middle" fill="#1f2421" font-size="11" font-weight="700">${fmt(row.volumeTotalL)}</text>`;
-    }).join('');
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Volume total de insumos comparado por cultura"><line x1="35" y1="190" x2="480" y2="190" stroke="#e4e7e3"/>${bars}</svg>`;
+    if (!rows.length) return '<div class="state-banner is-visible state-empty">Sem dados para comparar.</div>';
+    const values = rows.map(row => chartMetric === 'area' ? row.areaHa : row.volumeTotalL);
+    const max = Math.max(...values, 1); const width = 700; const height = 250; const base = 206; const plotHeight = 164;
+    const grid = [0, .5, 1].map(step => { const y = base - step * plotHeight; return `<line x1="46" y1="${y}" x2="680" y2="${y}" stroke="#E4E7E3"/><text x="4" y="${y + 4}" fill="#6B716D" font-size="11">${fmt(max * step, chartMetric === 'area' ? 1 : 0)}</text>`; }).join('');
+    const slot = 620 / rows.length; const barWidth = Math.min(112, slot * .5);
+    const bars = rows.map((row, index) => { const value = values[index]; const heightValue = Math.max(4, value / max * plotHeight); const x = 54 + index * slot + (slot - barWidth) / 2; const y = base - heightValue; const color = index % 2 ? '#6F8F72' : '#2F5D3A'; return `<rect x="${x}" y="${y}" width="${barWidth}" height="${heightValue}" rx="5" fill="${color}"><title>${esc(row.cultura)}: ${fmt(value, chartMetric === 'area' ? 1 : 0)} ${chartMetric === 'area' ? 'ha' : 'L'}</title></rect><text x="${x + barWidth / 2}" y="${y - 9}" text-anchor="middle" fill="#1F2421" font-size="12" font-weight="700">${fmt(value, chartMetric === 'area' ? 1 : 0)}</text><text x="${x + barWidth / 2}" y="${base + 23}" text-anchor="middle" fill="#6B716D" font-size="12">${esc(row.culturaShort)}</text>`; }).join('');
+    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Comparação de ${chartMetric === 'area' ? 'área em hectares' : 'volume em litros'} entre culturas">${grid}${bars}</svg>`;
+  }
+
+  function svgEvolution() {
+    const width = 700, height = 300; const points = [[42, 220], [170, 184], [300, 198], [432, 126], [560, 144], [668, 78]];
+    const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun']; const grid = [50, 110, 170, 230].map(y => `<line x1="42" y1="${y}" x2="680" y2="${y}" stroke="#E4E7E3"/>`).join(''); const line = points.map(point => point.join(',')).join(' '); const area = `42,230 ${line} 668,230`;
+    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Evolução demonstrativa dos indicadores">${grid}<polygon points="${area}" fill="#2F5D3A" opacity=".08"/><polyline points="${line}" fill="none" stroke="#2F5D3A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${points.map((point, index) => `<circle cx="${point[0]}" cy="${point[1]}" r="5" fill="#fff" stroke="#2F5D3A" stroke-width="3"/><text x="${point[0]}" y="258" text-anchor="middle" fill="#6B716D" font-size="11">${labels[index]}</text>`).join('')}</svg>`;
+  }
+
+  function renderRange(rows) {
+    const target = $('#range-area'); const note = $('#range-note'); if (!target) return;
+    if (!rows.length) { target.innerHTML = '<div class="state-banner is-visible state-empty">Sem dados para este recorte.</div>'; if (note) note.textContent = ''; return; }
+    const values = rows.map(row => row.areaHa); const min = Math.min(...values); const max = Math.max(...values); const avg = mean(values); const span = Math.max(max - min, 1); const meanPosition = ((avg - min) / span) * 100;
+    target.innerHTML = `<div class="range-plot"><div class="range-track"><span class="range-fill" style="left:0%;width:100%"></span><span class="range-marker range-marker--mean" style="left:${meanPosition}%" title="Média: ${fmt(avg, 1)} ha"></span></div><div class="range-labels"><span>${fmt(min, 1)}<em>Mínimo</em></span><span class="range-labels-mean">${fmt(avg, 1)}<em>Média</em></span><span>${fmt(max, 1)}<em>Máximo</em></span></div></div>`;
+    if (note) note.textContent = `Desvio padrão amostral: ${fmt(std(values), 2)} ha.`;
+  }
+
+  function renderInsights(rows) {
+    const target = $('#insight-grid'); if (!target) return;
+    if (!rows.length) { target.innerHTML = '<div class="state-banner is-visible state-empty">Nenhum insight disponível para este recorte.</div>'; return; }
+    const largest = rows.reduce((a, b) => a.volumeTotalL > b.volumeTotalL ? a : b);
+    target.innerHTML = [
+      ['01', 'Comparação de área', `${fmt(sum(rows.map(row => row.areaHa)), 1)} ha plantados aparecem no recorte selecionado.`],
+      ['02', 'Dosagem x volume total', `${esc(largest.cultura)} concentra ${fmt(largest.volumeTotalL)} L estimados no manejo.`],
+      ['03', 'Variabilidade', `O desvio padrão das áreas observadas é ${fmt(std(rows.map(row => row.areaHa)), 2)} ha.`]
+    ].map(([index, kind, text]) => `<article class="card insight-card"><div class="insight-index">${index}</div><div class="insight-kind">${kind}</div><p class="insight-text">${text}</p></article>`).join('');
   }
 
   function renderDashboard() {
-    renderKpis();
-    const rows = filtered();
-    const line = $('#line-chart'); if (line) line.innerHTML = svgLineChart(rows);
-    const bars = $('#bar-chart'); if (bars) bars.innerHTML = svgBarChart(rows);
-    const insights = $('#insights-grid');
-    if (insights) insights.innerHTML = rows.length ? [
-      ['01', 'Cobertura', `${fmt(sum(rows.map(row => row.areaHa)))} hectares aparecem no recorte selecionado.`],
-      ['02', 'Variabilidade', `A dispersão do indicador selecionado é de ${fmt(std(rows.map(metric)), selectedIndicator === 'Insumos' ? 0 : 2)} ${selectedIndicator === 'Insumos' ? 'L' : 'ha'}.`],
-      ['03', 'Leitura', selectedIndicator === 'Insumos' ? 'O volume é uma estimativa de manejo baseada nas ruas registradas.' : 'A área é um cálculo geométrico baseado nas dimensões informadas.']
-    ].map(([index, title, text]) => `<article class="card insight-card"><div class="insight-index">${index} · ${title}</div><p>${text}</p></article>`).join('') : `<div class="card empty-state" style="grid-column:1/-1"><strong>Nenhum dado encontrado para os filtros selecionados.</strong>Tente selecionar “Todas”.</div>`;
+    const select = $('#filter-cultura');
+    if (select && !select.dataset.ready) { select.innerHTML = cultureOptions().map(value => `<option value="${esc(value)}">${esc(value)}</option>`).join(''); select.value = cultureFilter; select.dataset.ready = 'true'; }
+    const rows = filteredRecords(); renderKpis();
+    const chart = $('#chart-compare'); if (chart) chart.innerHTML = svgBarChart(rows);
+    const evolution = $('#chart-evolution'); if (evolution) evolution.innerHTML = svgEvolution();
+    renderRange(rows); renderInsights(rows);
+    $$('.metric-btn').forEach(button => { const active = button.dataset.metric === chartMetric; button.classList.toggle('is-active', active); button.setAttribute('aria-pressed', String(active)); });
   }
 
-  function renderManagement() {
-    const list = $('#record-list');
-    if (!list) return;
-    list.innerHTML = records.length ? records.map(record => `<div class="record-item"><div class="record-main"><strong><span class="culture-pill">${record.culturaShort}</span> ${record.produto}</strong><small>${fmt(record.areaM2)} m² · ${fmt(record.areaHa, 1)} ha</small></div><div class="record-meta">${fmt(record.qtdRuas)} ruas × ${fmt(record.comprimentoRuaM)} m · ${fmt(record.volumeTotalL)} L</div><div class="record-actions"><button class="button" type="button" data-action="edit" data-id="${record.id}">Editar</button><button class="button" type="button" data-action="delete" data-id="${record.id}">Excluir</button></div></div>`).join('') : `<div class="empty-state"><strong>Nenhum registro cadastrado.</strong>Use o formulário para adicionar a primeira cultura.</div>`;
-    $$('[data-action="edit"]', list).forEach(button => button.addEventListener('click', () => startEdit(button.dataset.id)));
-    $$('[data-action="delete"]', list).forEach(button => button.addEventListener('click', () => deleteRecord(button.dataset.id)));
+  function wireDashboard() {
+    const select = $('#filter-cultura');
+    select?.addEventListener('change', event => { cultureFilter = event.target.value; renderDashboard(); showToast('Filtro aplicado aos indicadores.'); });
+    $$('.metric-btn').forEach(button => button.addEventListener('click', () => { chartMetric = button.dataset.metric; renderDashboard(); }));
+    $('#refresh-data')?.addEventListener('click', event => { const button = event.currentTarget; button.classList.add('is-loading'); setState('#dashboard-state', 'Indicadores recalculados a partir dos registros da sessão.', 'success'); setTimeout(() => button.classList.remove('is-loading'), 500); renderDashboard(); });
+    renderDashboard();
   }
 
-  function readNumber(id) {
-    const value = Number($(id).value);
-    return Number.isFinite(value) && value > 0 ? value : null;
+  function readWizard() {
+    const get = id => number($(id)?.value); return { cultura: $('#f-cultura')?.value.trim(), comprimento: get('#f-comprimento'), largura: get('#f-largura'), ruas: get('#f-qtd-ruas'), compRua: get('#f-comp-rua'), produto: $('#f-produto')?.value.trim(), dosagem: get('#f-dosagem'), metodo: $('#f-metodo')?.value.trim() };
   }
 
-  function resetRecordForm() {
-    const form = $('#record-form'); if (!form) return;
-    form.reset(); $('#record-id').value = ''; $('#form-title').textContent = 'Cadastrar cultura'; $('#save-record').textContent = 'Adicionar registro'; $('#cancel-edit').hidden = true; $('#form-feedback').textContent = '';
+  function wizardValues() { const values = readWizard(); return { ...values, areaM2: values.comprimento * values.largura, areaHa: values.comprimento * values.largura / 10000, volume: values.dosagem * values.compRua * values.ruas / 1000 }; }
+
+  function updateWizardPreview() {
+    const values = wizardValues(); const area = Number.isFinite(values.areaM2) && values.areaM2 > 0 ? `${fmt(values.areaM2)} m²` : '—'; const ha = Number.isFinite(values.areaHa) && values.areaHa > 0 ? `${fmt(values.areaHa, 2)} ha` : '—'; const volume = Number.isFinite(values.volume) && values.volume > 0 ? `${fmt(values.volume, 1)} L` : '—';
+    ['#preview-area', '#preview-area-step2'].forEach(selector => { const element = $(selector); if (element) element.textContent = selector === '#preview-area-step2' ? ha : area; }); const previewHa = $('#preview-ha'); if (previewHa) previewHa.textContent = ha; const previewVolume = $('#preview-volume'); if (previewVolume) previewVolume.textContent = volume;
   }
 
-  function startEdit(id) {
-    const record = records.find(item => item.id === id); if (!record) return;
-    $('#record-id').value = record.id; $('#record-culture').value = record.cultura; $('#record-product').value = record.produto; $('#record-length').value = record.comprimentoTerrenoM || Math.sqrt(record.areaM2); $('#record-width').value = record.larguraTerrenoM || Math.sqrt(record.areaM2); $('#record-streets').value = record.qtdRuas; $('#record-street-length').value = record.comprimentoRuaM; $('#record-dosage').value = record.dosagemMlM; $('#form-title').textContent = 'Atualizar cultura'; $('#save-record').textContent = 'Salvar alterações'; $('#cancel-edit').hidden = false; $('#record-product').focus(); showToast(`Editando o registro de ${record.culturaShort}.`);
+  function validateStep(step) {
+    const values = readWizard(); const valid = step === 1 ? Boolean(values.cultura && values.comprimento > 0 && values.largura > 0) : Boolean(values.ruas > 0 && values.compRua > 0 && values.produto && values.dosagem > 0); const error = $(`#wizard-error-${step}`); if (error) error.textContent = valid ? '' : (step === 1 ? 'Informe a cultura e duas dimensões positivas para calcular a área.' : 'Informe ruas, comprimento da rua, produto e dosagem com valores positivos.'); return valid;
   }
 
-  function deleteRecord(id) {
-    const index = records.findIndex(item => item.id === id); if (index < 0) return;
-    const [removed] = records.splice(index, 1); renderManagement(); renderDashboard(); resetRecordForm(); showToast(`${removed.culturaShort} removida da sessão.`);
-  }
+  function renderWizardStep() {
+    $$('[data-wizard-step]').forEach(element => { element.hidden = Number(element.dataset.wizardStep) !== wizardStep; });
+    $$('[data-step-indicator]').forEach(element => { const value = Number(element.dataset.stepIndicator); element.classList.toggle('is-active', value === wizardStep); element.classList.toggle('is-done', value < wizardStep); });
+    const back = $('#wizard-back'); const next = $('#wizard-next'); if (back) back.hidden = wizardStep === 1; if (next) next.textContent = wizardStep === 3 ? 'Adicionar ao plano' : 'Continuar'; updateWizardPreview();
+    if (wizardStep === 3) { const values = wizardValues(); const summary = $('#wizard-summary'); if (summary) summary.innerHTML = [['Cultura', values.cultura], ['Terreno', `${fmt(values.comprimento, 2)} × ${fmt(values.largura, 2)} m`], ['Área calculada', `${fmt(values.areaM2, 2)} m² · ${fmt(values.areaHa, 2)} ha`], ['Ruas', `${fmt(values.ruas)} de ${fmt(values.compRua, 2)} m`], ['Produto / dosagem', `${esc(values.produto)} · ${fmt(values.dosagem)} mL/m`], ['Volume total estimado', `${fmt(values.volume, 2)} L`]].map(([label, value]) => `<div class="row"><span>${label}</span><span>${value}</span></div>`).join(''); } }
 
-  function exportRecords() {
-    const header = ['cultura', 'area_m2', 'area_ha', 'qtd_ruas', 'comprimento_rua_m', 'produto', 'dosagem_ml_por_metro', 'volume_total_L'];
-    const lines = records.map(record => [record.cultura, record.areaM2, record.areaHa, record.qtdRuas, record.comprimentoRuaM, record.produto, record.dosagemMlM, record.volumeTotalL].map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','));
-    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'farmtech_registros.csv'; link.click(); URL.revokeObjectURL(url); showToast('CSV exportado com sucesso.');
-  }
+  function resetWizard() { wizardStep = 1; editingId = null; ['#f-cultura', '#f-comprimento', '#f-largura', '#f-qtd-ruas', '#f-comp-rua', '#f-produto', '#f-dosagem', '#f-metodo'].forEach(selector => { const element = $(selector); if (element) element.value = ''; }); renderWizardStep(); }
 
-  function wireManagement() {
-    const form = $('#record-form'); if (!form) return;
-    form.addEventListener('submit', event => {
-      event.preventDefault();
-      const length = readNumber('#record-length'), width = readNumber('#record-width'), streets = readNumber('#record-streets'), streetLength = readNumber('#record-street-length'), dosage = readNumber('#record-dosage'), product = $('#record-product').value.trim();
-      if ([length, width, streets, streetLength, dosage].some(value => value === null) || !product) { $('#form-feedback').textContent = 'Preencha todos os campos com valores positivos.'; return; }
-      const culture = $('#record-culture').value; const areaM2 = length * width; const existingId = $('#record-id').value; const record = { id: existingId || `${culture.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`, cultura: culture, culturaShort: culture === 'Café' ? 'Café' : 'Cana', areaHa: areaM2 / 10000, areaM2, comprimentoTerrenoM: length, larguraTerrenoM: width, qtdRuas: streets, comprimentoRuaM: streetLength, produto: product, volumeTotalL: dosage * streetLength * streets / 1000, dosagemMlM: dosage, regiao: null, periodo: 'Registro atual' };
-      if (existingId) { const index = records.findIndex(item => item.id === existingId); if (index >= 0) records[index] = record; showToast('Registro atualizado e indicadores recalculados.'); } else { records.push(record); showToast('Cultura cadastrada e adicionada aos indicadores.'); }
-      renderManagement(); renderDashboard(); resetRecordForm();
-    });
-    $('#cancel-edit')?.addEventListener('click', resetRecordForm); $('#export-csv')?.addEventListener('click', exportRecords); renderManagement();
-  }
+  function openWizard(record = null) { resetWizard(); if (record) { editingId = record.id; $('#f-cultura').value = record.cultura; $('#f-comprimento').value = record.comprimentoTerrenoM; $('#f-largura').value = record.larguraTerrenoM; $('#f-qtd-ruas').value = record.qtdRuas; $('#f-comp-rua').value = record.comprimentoRuaM; $('#f-produto').value = record.produto; $('#f-dosagem').value = record.dosagemMlM; $('#f-metodo').value = record.metodo || ''; } const modal = $('#wizard-modal'); if (modal) { modal.hidden = false; document.body.style.overflow = 'hidden'; $('#f-cultura')?.focus(); } renderWizardStep(); }
 
-  function renderStats() {
-    const container = $('#analysis-list');
-    if (!container) return;
-    container.innerHTML = data.analyses.map(analysis => {
-      const values = records.map(record => analysis.id === 'area' ? record.areaHa : record.volumeTotalL);
-      const unit = analysis.id === 'area' ? ' ha' : ' L';
-      return `<article class="card analysis-card ${analysis.id === 'area' ? 'open' : ''}"><div class="analysis-top"><div><span class="tag">R · ${analysis.method}</span><h2 style="margin-top:14px">${analysis.title}</h2><p>${analysis.description}</p></div><button class="button button-small analysis-toggle" aria-expanded="${analysis.id === 'area'}">${analysis.id === 'area' ? 'Recolher' : 'Ver análise'}</button></div><div class="analysis-detail"><div class="stat-row"><div class="stat-box"><span>Média</span><strong>${fmt(mean(values), analysis.id === 'area' ? 1 : 0)}${unit}</strong></div><div class="stat-box"><span>Mediana</span><strong>${fmt(median(values), analysis.id === 'area' ? 1 : 0)}${unit}</strong></div><div class="stat-box"><span>Desvio padrão</span><strong>${fmt(std(values), analysis.id === 'area' ? 2 : 0)}${unit}</strong></div><div class="stat-box"><span>Mínimo</span><strong>${fmt(Math.min(...values))}${unit}</strong></div><div class="stat-box"><span>Máximo</span><strong>${fmt(Math.max(...values))}${unit}</strong></div></div><div class="analysis-copy"><div><h3>Interpretação</h3><p>${analysis.interpretation}</p></div><div><h3>Metodologia e fonte</h3><p>${analysis.method}. O front-end exibe o resultado preparado pelo R/Python e não altera a metodologia. <a class="source-link" target="_blank" rel="noreferrer" href="${data.meta.sourceUrl}">Ver código no GitHub ↗</a></p></div></div></div></article>`;
-    }).join('');
-    $$('.analysis-toggle').forEach(button => button.addEventListener('click', () => {
-      const card = button.closest('.analysis-card'); const open = card.classList.toggle('open'); button.textContent = open ? 'Recolher' : 'Ver análise'; button.setAttribute('aria-expanded', open);
-    }));
-  }
+  function closeWizard() { const modal = $('#wizard-modal'); if (modal) modal.hidden = true; document.body.style.overflow = ''; }
+
+  function commitWizard() { const values = wizardValues(); const id = editingId || `${values.cultura.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${Date.now()}`; const record = { id, cultura: values.cultura, culturaShort: values.cultura.length > 12 ? values.cultura.slice(0, 12) : values.cultura, areaHa: values.areaHa, areaM2: values.areaM2, comprimentoTerrenoM: values.comprimento, larguraTerrenoM: values.largura, qtdRuas: values.ruas, comprimentoRuaM: values.compRua, produto: values.produto, volumeTotalL: values.volume, dosagemMlM: values.dosagem, metodo: values.metodo || null, regiao: null, periodo: 'Registro atual' }; const index = records.findIndex(item => item.id === id); if (index >= 0) records[index] = record; else records.push(record); saveRecords(); closeWizard(); renderDataTable(); showToast(index >= 0 ? 'Registro atualizado com sucesso.' : 'Cultura adicionada ao plano.'); }
 
   function renderDataTable() {
-    const body = $('#data-rows'), search = $('#data-search'), count = $('#record-count');
-    if (!body) return;
-    const draw = () => {
-      const query = (search?.value || '').toLowerCase();
-      const rows = records.filter(row => Object.values(row).join(' ').toLowerCase().includes(query));
-      if (count) count.textContent = `${rows.length} ${rows.length === 1 ? 'registro' : 'registros'} · demonstração`;
-      body.innerHTML = rows.length ? rows.map(row => `<tr><td><span class="culture-pill">${row.culturaShort}</span></td><td>${fmt(row.areaHa, 1)} ha</td><td>${fmt(row.areaM2)} m²</td><td>${fmt(row.qtdRuas)}</td><td>${fmt(row.comprimentoRuaM)} m</td><td>${row.produto}</td><td>${fmt(row.volumeTotalL)} L</td></tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><strong>Nenhum dado encontrado para esta busca.</strong>Ajuste o termo e tente novamente.</div></td></tr>`;
-    };
-    search?.addEventListener('input', draw); draw();
+    const body = $('#data-rows'); if (!body) return; const query = ($('#table-search')?.value || '').trim().toLowerCase(); const visible = records.filter(record => Object.values(record).join(' ').toLowerCase().includes(query));
+    const count = $('#record-count'); if (count) count.textContent = `${visible.length} ${visible.length === 1 ? 'registro' : 'registros'} · sessão atual`;
+    body.innerHTML = visible.length ? visible.map(row => `<tr><td><strong>${esc(row.culturaShort)}</strong><br><span class="badge badge-session">${row.id.startsWith('cana-') || row.id.startsWith('cafe-') ? 'base' : 'sessão'}</span></td><td data-column="area"><strong>${fmt(row.areaHa, 2)} ha</strong><br><span class="section-desc">${fmt(row.areaM2)} m²</span></td><td data-column="area">${fmt(row.comprimentoTerrenoM, 1)} × ${fmt(row.larguraTerrenoM, 1)} m</td><td data-column="streets">${fmt(row.qtdRuas)}</td><td data-column="streets">${fmt(row.comprimentoRuaM, 1)}</td><td data-column="product">${esc(row.produto)}</td><td data-column="product">${fmt(row.dosagemMlM)} mL/m</td><td data-column="volume"><strong>${fmt(row.volumeTotalL, 1)} L</strong></td><td><div class="table-actions"><button class="btn btn-ghost btn-icon" type="button" data-edit="${esc(row.id)}" aria-label="Editar ${esc(row.cultura)}">Editar</button><button class="btn btn-danger-ghost btn-icon" type="button" data-delete="${esc(row.id)}" aria-label="Excluir ${esc(row.cultura)}">Excluir</button></div></td></tr>`).join('') : '<tr><td colspan="9"><div class="state-banner is-visible state-empty">Nenhum registro encontrado para esta busca.</div></td></tr>';
+    $$('[data-edit]', body).forEach(button => button.addEventListener('click', () => { const record = records.find(item => item.id === button.dataset.edit); if (record) openWizard(record); }));
+    $$('[data-delete]', body).forEach(button => button.addEventListener('click', () => { const index = records.findIndex(item => item.id === button.dataset.delete); if (index < 0) return; const removed = records.splice(index, 1)[0]; saveRecords(); renderDataTable(); showToast(`${removed.culturaShort} excluída da sessão.`); }));
+    $$('.col-toggle input').forEach(input => { const name = input.dataset.col; $$(`[data-column="${name}"]`).forEach(cell => { cell.hidden = !input.checked; }); });
   }
 
-  function renderAbout() {
-    const sources = $('#source-list');
-    if (!sources) return;
-    sources.innerHTML = data.sources.map(source => source.available ? `<a class="source-row" target="_blank" rel="noreferrer" href="${source.url}"><span>${source.label}</span><small>Ver código ↗</small></a>` : `<div class="source-row unavailable"><span>${source.label}</span><small>Link não informado</small></div>`).join('');
+  function wireData() {
+    const open = () => openWizard(); $('#new-cultura-btn')?.addEventListener('click', open); $('#open-wizard-secondary')?.addEventListener('click', open); $('#table-search')?.addEventListener('input', renderDataTable); $('#wizard-close')?.addEventListener('click', closeWizard); $('#wizard-modal')?.addEventListener('click', event => { if (event.target.id === 'wizard-modal') closeWizard(); });
+    $$('.col-toggle input').forEach(input => input.addEventListener('change', renderDataTable));
+    $('#restore-btn')?.addEventListener('click', () => { records = initialRecords.map(record => ({ ...record })); saveRecords(); renderDataTable(); setState('#data-state', 'Dados base restaurados para esta sessão.', 'success'); });
+    $('#export-csv')?.addEventListener('click', exportCsv);
+    $('#wizard-back')?.addEventListener('click', () => { wizardStep = Math.max(1, wizardStep - 1); renderWizardStep(); });
+    $('#wizard-next')?.addEventListener('click', () => { if (wizardStep < 3) { if (!validateStep(wizardStep)) return; wizardStep += 1; renderWizardStep(); } else commitWizard(); });
+    ['#f-comprimento', '#f-largura', '#f-qtd-ruas', '#f-comp-rua', '#f-dosagem'].forEach(selector => $(selector)?.addEventListener('input', updateWizardPreview));
+    renderDataTable(); if (location.hash === '#nova-cultura') openWizard();
   }
 
-  function init() {
-    setupShell();
-    document.documentElement.dataset.mock = String(data.meta.isMock);
-    if (page === 'dashboard') { wireFilters(); wireManagement(); renderDashboard(); }
-    if (page === 'analysis' || page === 'stats') renderStats();
-    if (page === 'data') renderDataTable();
-    if (page === 'about') renderAbout();
-    const mark = $('#mock-mark'); if (mark && data.meta.isMock) mark.textContent = 'DADOS DE DEMONSTRAÇÃO';
+  function exportCsv() { const headers = ['cultura', 'area_m2', 'area_ha', 'comprimento_terreno_m', 'largura_terreno_m', 'qtd_ruas', 'comprimento_rua_m', 'produto', 'dosagem_ml_por_metro', 'volume_total_l']; const lines = records.map(row => [row.cultura, row.areaM2, row.areaHa, row.comprimentoTerrenoM, row.larguraTerrenoM, row.qtdRuas, row.comprimentoRuaM, row.produto, row.dosagemMlM, row.volumeTotalL].map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')); const blob = new Blob(['\ufeff' + [headers.join(';'), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'farmtech_registros.csv'; link.click(); URL.revokeObjectURL(url); showToast('CSV exportado com sucesso.'); }
+
+  function renderStats() {
+    const target = $('#analysis-list'); if (!target) return;
+    target.innerHTML = source.analyses.map((analysis, index) => { const values = records.map(record => analysis.id === 'area' ? record.areaHa : record.volumeTotalL); const digits = analysis.id === 'area' ? 2 : 0; const unit = analysis.id === 'area' ? 'ha' : 'L'; return `<article class="card analysis-card"><div class="section-head"><div><span class="badge badge-real">R · resultado calculado</span><h2 style="margin-top:10px">${esc(analysis.title)}</h2><p class="section-desc">${esc(analysis.description)}</p></div><span class="badge badge-${index ? 'mock' : 'real'}">${index ? 'Insumos' : 'Área'}</span></div><div class="stat-grid"><div class="stat-mini"><span class="stat-label">Média</span><strong class="stat-value">${fmt(mean(values), digits)} ${unit}</strong></div><div class="stat-mini"><span class="stat-label">Mediana</span><strong class="stat-value">${fmt(median(values), digits)} ${unit}</strong></div><div class="stat-mini"><span class="stat-label">Desvio padrão</span><strong class="stat-value">${fmt(std(values), digits)} ${unit}</strong></div><div class="stat-mini"><span class="stat-label">Mínimo</span><strong class="stat-value">${fmt(Math.min(...values), digits)} ${unit}</strong></div><div class="stat-mini"><span class="stat-label">Máximo</span><strong class="stat-value">${fmt(Math.max(...values), digits)} ${unit}</strong></div></div><div class="analysis-block"><div><h4>Interpretação</h4><p>${esc(analysis.interpretation)}</p></div><div><h4>Fórmula usada</h4><pre class="method-code">${esc(analysis.method)}</pre></div></div></article>`; }).join('');
   }
+
+  function renderAbout() { const target = $('#source-list'); if (!target) return; target.innerHTML = source.sources.map(item => item.available ? `<a class="nav-link" style="border:1px solid var(--color-border);margin-top:8px" href="${esc(item.url)}" target="_blank" rel="noreferrer">${esc(item.label)} <span style="margin-left:auto">↗</span></a>` : `<div class="nav-link" style="border:1px solid var(--color-border);margin-top:8px;cursor:default">${esc(item.label)} <span class="section-desc" style="margin-left:auto">Link não informado</span></div>`).join(''); }
+
+  function init() { setupShell(); if (page === 'dashboard') wireDashboard(); if (page === 'data') wireData(); if (page === 'analysis') renderStats(); if (page === 'about') renderAbout(); }
   init();
 })();
 
