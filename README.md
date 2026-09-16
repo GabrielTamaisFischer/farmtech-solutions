@@ -5,7 +5,8 @@ Projeto acadêmico FIAP: gestão de café e cana em Python e estatísticas em R.
 ## Organização
 
 - `farmtech.py`: menu, vetores paralelos, cálculo de área e insumos, exportação CSV.
-- `estatisticas.R`: leitura do CSV, média, desvio padrão e gráfico.
+- `estatisticas.R`: leitura do CSV, média, desvio padrão, gráfico e chamada da meteorologia.
+- `meteorologia.R`: consulta atual ao Open-Meteo com `jsonlite`.
 - `culturas_manejo.csv`: exemplo original fornecido pelo grupo; a opção 5 substitui o arquivo pelos dados da sessão.
 - `docs/ROTEIRO_VIDEO.md`: demonstração de até cinco minutos.
 - `docs/INTEGRANTES.md`: identificação da equipe.
@@ -18,10 +19,10 @@ Na pasta do projeto:
 ```sh
 python farmtech.py
 Rscript estatisticas.R
+Rscript meteorologia.R
 ```
 
-No RStudio/Posit Cloud, abra a pasta do projeto e execute `source("estatisticas.R")`.
-O Python usa apenas a biblioteca padrão; as estatísticas usam R base. Para o clima, execute no R `install.packages(c("httr", "jsonlite"))` uma vez. A consulta usa coordenadas ilustrativas do Trello (-22.90, -47.05); ajuste-as à localização desejada. Falhas de rede são informadas no terminal.
+No RStudio/Posit Cloud, abra a pasta do projeto e execute `source("estatisticas.R")` ou `source("meteorologia.R")`. O Python usa apenas a biblioteca padrão e o R usa `jsonlite` para consultar o Open-Meteo. A consulta usa Betim, MG, nas coordenadas do exemplo do projeto. Falhas de rede são informadas no terminal.
 
 ## Cálculos
 
@@ -42,7 +43,7 @@ Com apenas uma observação, o desvio padrão amostral em R é NA.
 - Confirmar o aceite dos convites dos colaboradores no GitHub.
 - Adicionar o resumo do artigo revisado pelo grupo (até uma página A4, Arial 11, espaçamento simples, margens laterais de 2 cm).
 - Gravar o vídeo, publicar como não listado e incluir o link em TXT.
-- Executar e validar o R no RStudio/Posit Cloud: Rscript não foi encontrado no ambiente local de preparação. A integração Open-Meteo foi incluída e revisada, mas ainda não executada em R.
+- R 4.6.1 e `jsonlite` 2.0.0 foram instalados e os scripts `estatisticas.R` e `meteorologia.R` foram executados com resposta atual do Open-Meteo.
 - Revisar o ZIP final antes de enviar à plataforma.
 
 ## Referências do enunciado
