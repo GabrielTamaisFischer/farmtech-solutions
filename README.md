@@ -1,53 +1,160 @@
 # FarmTech Solutions
 
-Projeto acadêmico FIAP: gestão de café e cana em Python e estatísticas em R.
+Aplicação acadêmica desenvolvida para a Startup FarmTech Solutions, com foco em apoiar decisões de manejo agrícola por meio de cálculos de área, estimativa de insumos, organização de dados e análise estatística.
 
-## Organização
+## Sistema publicado
 
-- `farmtech.py`: menu, vetores paralelos, cálculo de área e insumos, exportação CSV.
-- `estatisticas.R`: leitura do CSV, média, desvio padrão, gráfico e chamada da meteorologia.
-- `meteorologia.R`: consulta atual ao Open-Meteo com `jsonlite`.
-- `culturas_manejo.csv`: exemplo original fornecido pelo grupo; a opção 5 substitui o arquivo pelos dados da sessão.
-- `docs/ROTEIRO_VIDEO.md`: demonstração de até cinco minutos.
-- `docs/INTEGRANTES.md`: identificação da equipe.
-- `CONTRIBUTING.md`: fluxo de colaboração.
+Acesse diretamente o protótipo funcional:
 
-## Executar
+**[Abrir o sistema FarmTech](https://farmtech-solutions-demo.vercel.app/dashboard)**
 
-Na pasta do projeto:
+O sistema apresenta o dashboard, os indicadores calculados, a tabela de dados, os fluxos de cadastro/edição/exclusão/exportação e a integração meteorológica com o Open-Meteo.
 
-```sh
+## Por que este projeto existe
+
+A agricultura digital transforma informações do campo em indicadores que ajudam no planejamento da produção. O projeto simula uma solução para uma fazenda que precisa:
+
+- calcular a área plantada a partir das dimensões do terreno;
+- estimar a quantidade de insumo necessária para o manejo;
+- organizar registros de diferentes culturas;
+- atualizar, excluir e exportar dados;
+- analisar médias e desvios estatísticos;
+- consultar condições meteorológicas atuais para apoiar o planejamento.
+
+O protótipo trabalha com as culturas café e cana-de-açúcar. Os registros agrícolas incluídos servem como dados iniciais de demonstração e podem ser substituídos pelos dados reais da fazenda.
+
+## Base técnica
+
+### Python
+
+O programa principal está em `farmtech.py` e utiliza a biblioteca padrão do Python.
+
+A aplicação usa vetores paralelos, mantendo cada cultura na mesma posição em todas as listas de dados. O menu oferece:
+
+1. entrada de dados;
+2. saída e listagem dos registros;
+3. atualização por posição do vetor;
+4. deleção por posição;
+5. exportação para CSV;
+6. saída do programa.
+
+O cálculo da área utiliza um terreno retangular:
+
+```text
+área em m² = comprimento do terreno × largura do terreno
+área em hectares = área em m² ÷ 10.000
+```
+
+O cálculo de insumos utiliza a dosagem, o comprimento das ruas e a quantidade de ruas:
+
+```text
+volume total em litros =
+dosagem em mL/m × comprimento da rua em m × quantidade de ruas ÷ 1.000
+```
+
+### R
+
+O arquivo `estatisticas.R` lê o arquivo `culturas_manejo.csv` e calcula:
+
+- média;
+- desvio padrão;
+- resultados gerais;
+- resultados por cultura;
+- gráfico do volume total de insumos.
+
+O arquivo `meteorologia.R` consulta a API pública Open-Meteo usando o pacote `jsonlite`. A consulta retorna temperatura, umidade, precipitação, velocidade do vento e horário da medição para Itapecerica da Serra, SP.
+
+### Interface web
+
+A pasta `prototype/` contém a camada visual publicada no Vercel:
+
+- HTML para as páginas do sistema;
+- CSS para layout, responsividade e identidade visual;
+- JavaScript para filtros, indicadores, gráficos, CRUD da sessão e exportação CSV;
+- consulta direta ao Open-Meteo para exibir o clima atualizado no dashboard.
+
+Os registros adicionados pela interface ficam na sessão do navegador. O sistema ainda não possui banco de dados ou autenticação.
+
+## Estrutura do repositório
+
+```text
+farmtech-solutions/
+├── farmtech.py                 # aplicação principal em Python
+├── culturas_manejo.csv         # dados de entrada e exportação
+├── estatisticas.R              # estatísticas e gráfico
+├── meteorologia.R              # consulta meteorológica ao vivo
+├── prototype/                  # interface web publicada
+│   ├── index.html              # dashboard
+│   ├── analysis.html           # análises e integração com R
+│   ├── data.html               # tabela e operações de dados
+│   ├── about.html               # informações do projeto
+│   ├── css/styles.css          # estilos
+│   ├── js/app.js               # comportamento da interface
+│   └── data/data.js            # dados iniciais do protótipo
+└── docs/                       # documentação complementar da entrega
+```
+
+## Como executar localmente
+
+### Python
+
+No PowerShell ou terminal:
+
+```powershell
+cd C:\Users\PC01\Documents\Estudosprogramador\farmtech
 python farmtech.py
+```
+
+### R
+
+```powershell
+cd C:\Users\PC01\Documents\Estudosprogramador\farmtech
 Rscript estatisticas.R
+```
+
+Para consultar apenas a meteorologia:
+
+```powershell
 Rscript meteorologia.R
 ```
 
-No RStudio/Posit Cloud, abra a pasta do projeto e execute `source("estatisticas.R")` ou `source("meteorologia.R")`. O Python usa apenas a biblioteca padrão e o R usa `jsonlite` para consultar o Open-Meteo. A consulta usa Itapecerica da Serra, SP, nas coordenadas do exemplo do projeto. Falhas de rede são informadas no terminal.
+O R utiliza o pacote `jsonlite`. Caso seja necessário instalar:
 
-## Cálculos
+```r
+install.packages("jsonlite", repos = "https://cloud.r-project.org")
+```
 
-Para ambas as culturas, o terreno é um retângulo: área em m² = comprimento × largura; hectares = m² / 10000.
-As dimensões do terreno são independentes do comprimento e quantidade de ruas usados no manejo.
-Volume total em litros = dosagem em mL/m × comprimento de rua em m × quantidade de ruas / 1000.
-As dosagens são exemplos didáticos fornecidos pelo grupo.
+### Interface web
 
-O menu contém entrada (1), saída (2), atualização por índice (3), deleção (4), exportação (5) e saída do programa (6).
-Os registros ficam em memória durante a sessão; o programa não importa o CSV ao iniciar.
-As dimensões são guardadas em vetores e recalculadas ao atualizar. A exclusão mantém todos os vetores alinhados.
-O CSV original não informa dimensões: não foram inventadas medidas para esses registros históricos.
-Novas exportações incluem comprimento e largura do terreno, preservando as colunas usadas pelo R.
-Com apenas uma observação, o desvio padrão amostral em R é NA.
+A interface web é estática. Abra `prototype/index.html` no navegador ou utilize um servidor local:
 
-## Pendências da entrega
+```powershell
+cd prototype
+python -m http.server 4173
+```
 
-- Confirmar o aceite dos convites dos colaboradores no GitHub.
-- Adicionar o resumo do artigo revisado pelo grupo (até uma página A4, Arial 11, espaçamento simples, margens laterais de 2 cm).
-- Gravar o vídeo, publicar como não listado e incluir o link em TXT.
-- R 4.6.1 e `jsonlite` 2.0.0 foram instalados e os scripts `estatisticas.R` e `meteorologia.R` foram executados com resposta atual do Open-Meteo.
-- Revisar o ZIP final antes de enviar à plataforma.
+## API meteorológica
 
-## Referências do enunciado
+A integração usa o endpoint público [Open-Meteo](https://open-meteo.com/en/docs), sem chave de API.
 
-- Trello: https://trello.com/c/azl166Md/4-aplica%C3%A7%C3%A3o-em-r-e-estat%C3%ADstica
-- Artigo: https://www.alice.cnptia.embrapa.br/alice/bitstream/doc/1003485/1/CAP8.pdf
-- API opcional: https://open-meteo.com/en/docs
+Local consultado:
+
+- Cidade: Itapecerica da Serra, SP
+- Latitude: -23.71694444
+- Longitude: -46.84916667
+- Fuso horário: America/Sao_Paulo
+
+A consulta existe tanto no dashboard web quanto no script R, permitindo demonstrar a mesma fonte de dados em duas tecnologias.
+
+## Colaboração
+
+O projeto utiliza GitHub para versionamento e colaboração da equipe. Alterações devem ser feitas por commits claros, mantendo separados os arquivos da aplicação Python/R, a interface web e a documentação da entrega.
+
+## Entrega acadêmica
+
+Além dos arquivos de código, a entrega pode incluir:
+
+- resumo do artigo solicitado pela disciplina;
+- roteiro ou link do vídeo de demonstração;
+- arquivos complementares exigidos pela plataforma da FIAP.
+
