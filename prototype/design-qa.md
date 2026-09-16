@@ -24,11 +24,12 @@
 - Nova cultura wizard: terrain dimensions calculate `m²` and hectares; street and dosage fields calculate total liters; confirmation adds the record.
 - Edit recalculates a record; delete removes it; restore returns the two base records.
 - Análises estatísticas and Sobre o projeto routes.
+- Dashboard climate card with live Open-Meteo response, including current temperature, precipitation and API timestamp.
 - Console output was checked through the browser-rendered DOM; no runtime error was observed during these interactions.
 
 ## Findings
 
-No actionable P0, P1 or P2 visual findings remain. The implementation preserves the source hierarchy, palette, spacing rhythm, sidebar navigation, cards, badges, tables, chart regions and wizard modal while keeping the requested CRUD visible in the Dados route.
+No actionable P0, P1 or P2 visual findings remain. The implementation preserves the source hierarchy, palette, spacing rhythm, sidebar navigation, cards, badges, tables, chart regions and wizard modal while keeping the requested CRUD visible in the Dados route. The climate card now replaces the source demonstration value with a live Open-Meteo response.
 
 Residual P3: the source loads Inter from Google Fonts, while this standalone implementation uses the source token with local system fallbacks so the deployment does not depend on a remote font asset. The resulting hierarchy and metrics remained visually consistent in the captured comparison.
 
@@ -45,6 +46,7 @@ Residual P3: the source loads Inter from Google Fonts, while this standalone imp
 - [x] Keep planting area calculation as `comprimento × largura`.
 - [x] Keep volume calculation as `dosagem × comprimento da rua × ruas ÷ 1.000`.
 - [x] Expose entry, output, update, delete and CSV export in the interface.
+- [x] Consult the Open-Meteo API from the dashboard and expose the R command that reproduces the live query.
 - [x] Validate responsive CSS and the available narrow source viewport.
 
 final result: passed

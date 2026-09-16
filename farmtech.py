@@ -7,15 +7,10 @@ Ex: se "cafe" esta no indice 0 de nomes_cultura, entao areas_m2[0],
 qtd_ruas[0], produtos[0] etc. tambem se referem ao cafe.
 """
 
-from math import isfinite
-from pathlib import Path
-
 # ---------------------------------------------------------
 # 1) VETORES DE DADOS (listas paralelas)
 # ---------------------------------------------------------
 nomes_cultura   = []   # ex: "cafe", "cana"
-comprimentos_m  = []   # comprimento do terreno retangular
-larguras_m      = []   # largura do terreno retangular
 areas_m2        = []   # area total em m2
 areas_ha        = []   # area total em hectares
 qtd_ruas        = []   # quantidade de ruas de plantio
@@ -28,28 +23,14 @@ dosagens_ml_m   = []   # dosagem em ml por metro de rua
 # ---------------------------------------------------------
 # 2) FUNCOES DE CALCULO
 # ---------------------------------------------------------
-def ler_positivo(mensagem, inteiro=False, atual=None):
-    while True:
-        valor = input(mensagem).strip()
-        if not valor and atual is not None:
-            return atual
-        try:
-            numero = int(valor) if inteiro else float(valor.replace(",", "."))
-            if isfinite(numero) and numero > 0:
-                return numero
-        except (ValueError, OverflowError):
-            pass
-        print("Informe um numero positivo valido.")
-
-
-def calcular_area_retangulo(comprimento, largura):
-    """Area plantada retangular para cafe e cana: comprimento x largura."""
-    return comprimento * largura
-
-
 def calcular_area_ha(area_m2):
     """Converte area em m2 para hectares (1 ha = 10.000 m2)."""
     return area_m2 / 10000
+
+
+def calcular_area_retangulo_m2(comprimento_m, largura_m):
+    """Calcula a area plantada de um terreno retangular em m2."""
+    return comprimento_m * largura_m
 
 
 def calcular_volume_total_litros(dosagem_ml_m, comprimento_m, qtd_ruas_cultura):
@@ -80,22 +61,19 @@ def entrada_dados():
     print("\n--- Entrada de dados de uma nova cultura ---")
     nome = input("Nome da cultura: ")
 
-    comprimento_terreno = ler_positivo("Comprimento do terreno (m): ")
-    largura_terreno = ler_positivo("Largura do terreno (m): ")
-    area_m2 = calcular_area_retangulo(comprimento_terreno, largura_terreno)
-    print(f"Area calculada: {comprimento_terreno} x {largura_terreno} = {area_m2} m2")
+    comprimento_terreno = float(input("Comprimento do terreno (m): "))
+    largura_terreno = float(input("Largura do terreno (m): "))
+    area_m2 = calcular_area_retangulo_m2(comprimento_terreno, largura_terreno)
     area_ha = calcular_area_ha(area_m2)
 
-    ruas = ler_positivo("Quantidade de ruas: ", inteiro=True)
-    comprimento = ler_positivo("Comprimento de cada rua (m): ")
+    ruas = int(input("Quantidade de ruas: "))
+    comprimento = float(input("Comprimento de cada rua (m): "))
 
     produto = input("Produto/insumo aplicado: ")
     metodo = input("Metodo de aplicacao: ")
-    dosagem = ler_positivo("Dosagem (ml por metro de rua): ")
+    dosagem = float(input("Dosagem (ml por metro de rua): "))
 
     nomes_cultura.append(nome)
-    comprimentos_m.append(comprimento_terreno)
-    larguras_m.append(largura_terreno)
     areas_m2.append(area_m2)
     areas_ha.append(area_ha)
     qtd_ruas.append(ruas)
@@ -121,7 +99,6 @@ def saida_dados():
             dosagens_ml_m[i], comprimento_rua[i], qtd_ruas[i]
         )
         print(f"\n[{i}] {nomes_cultura[i]}")
-        print(f"    Terreno retangular: {comprimentos_m[i]} x {larguras_m[i]} m")
         print(f"    Area: {areas_m2[i]} m2 ({areas_ha[i]:.2f} ha)")
         print(f"    Ruas: {qtd_ruas[i]} x {comprimento_rua[i]} m")
         print(f"    Insumo: {produtos[i]} ({metodos[i]})")
@@ -147,18 +124,17 @@ def atualizar_dados():
 
     print(f"Atualizando '{nomes_cultura[indice]}'. Deixe em branco para manter o valor atual.")
 
-    comprimentos_m[indice] = ler_positivo(
-        f"Novo comprimento do terreno ({comprimentos_m[indice]}): ", atual=comprimentos_m[indice])
-    larguras_m[indice] = ler_positivo(
-        f"Nova largura do terreno ({larguras_m[indice]}): ", atual=larguras_m[indice])
-    areas_m2[indice] = calcular_area_retangulo(comprimentos_m[indice], larguras_m[indice])
-    areas_ha[indice] = calcular_area_ha(areas_m2[indice])
-    qtd_ruas[indice] = ler_positivo(
-        f"Nova quantidade de ruas ({qtd_ruas[indice]}): ", inteiro=True, atual=qtd_ruas[indice])
-    comprimento_rua[indice] = ler_positivo(
-        f"Novo comprimento de rua em m ({comprimento_rua[indice]}): ", atual=comprimento_rua[indice])
-    dosagens_ml_m[indice] = ler_positivo(
-        f"Nova dosagem ml/m ({dosagens_ml_m[indice]}): ", atual=dosagens_ml_m[indice])
+    novo_valor = input(f"Nova quantidade de ruas ({qtd_ruas[indice]}): ")
+    if novo_valor:
+        qtd_ruas[indice] = int(novo_valor)
+
+    novo_valor = input(f"Novo comprimento de rua em m ({comprimento_rua[indice]}): ")
+    if novo_valor:
+        comprimento_rua[indice] = float(novo_valor)
+
+    novo_valor = input(f"Nova dosagem ml/m ({dosagens_ml_m[indice]}): ")
+    if novo_valor:
+        dosagens_ml_m[indice] = float(novo_valor)
 
     print("Dados atualizados com sucesso!")
 
@@ -184,8 +160,6 @@ def deletar_dados():
 
     # remove a mesma posicao em TODOS os vetores, para manter sincronizados
     del nomes_cultura[indice]
-    del comprimentos_m[indice]
-    del larguras_m[indice]
     del areas_m2[indice]
     del areas_ha[indice]
     del qtd_ruas[indice]
@@ -200,27 +174,23 @@ def deletar_dados():
 # ---------------------------------------------------------
 # 7) EXPORTACAO PARA CSV (ponte com o script em R)
 # ---------------------------------------------------------
-def exportar_csv(caminho=None):
+def exportar_csv(caminho="culturas_manejo.csv"):
     import csv
-
-    if caminho is None:
-        caminho = Path(__file__).resolve().parent / "culturas_manejo.csv"
 
     with open(caminho, mode="w", newline="", encoding="utf-8") as arquivo:
         escritor = csv.writer(arquivo)
         escritor.writerow([
             "cultura", "area_m2", "area_ha", "qtd_ruas", "comprimento_rua_m",
-            "produto", "metodo_aplicacao", "dosagem_ml_por_metro", "volume_total_L",
-            "comprimento_terreno_m", "largura_terreno_m"
+            "produto", "metodo_aplicacao", "dosagem_ml_por_metro", "volume_total_L"
         ])
         for i in range(len(nomes_cultura)):
             volume_total = calcular_volume_total_litros(
                 dosagens_ml_m[i], comprimento_rua[i], qtd_ruas[i]
             )
             escritor.writerow([
-                nomes_cultura[i], areas_m2[i], areas_ha[i],
+                nomes_cultura[i], areas_m2[i], round(areas_ha[i], 2),
                 qtd_ruas[i], comprimento_rua[i], produtos[i], metodos[i],
-                dosagens_ml_m[i], round(volume_total, 2), comprimentos_m[i], larguras_m[i]
+                dosagens_ml_m[i], round(volume_total, 2)
             ])
 
     print(f"\nDados exportados para '{caminho}' com sucesso!")
@@ -260,3 +230,4 @@ def menu_principal():
 
 if __name__ == "__main__":
     menu_principal()
+
