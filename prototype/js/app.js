@@ -1,7 +1,7 @@
 (function () {
   const source = window.FARMTECH_DATA;
   const page = document.body.dataset.page || 'dashboard';
-  const climateApiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=-19.9678&longitude=-44.1983&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&timezone=America%2FSao_Paulo';
+  const climateApiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=-23.71694444&longitude=-46.84916667&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&timezone=America%2FSao_Paulo';
   const storageKey = 'farmtech-session-records-v2';
   const initialRecords = source.records.map(record => ({ ...record }));
   let records = loadRecords();
@@ -62,7 +62,7 @@
         precipitation.textContent = `${fmt(current.precipitation, 1)} mm`;
         badge.className = 'badge badge-real';
         badge.textContent = 'API ao vivo';
-        meta.textContent = `Open-Meteo · Betim, MG · ${current.time || 'atualizado agora'}`;
+        meta.textContent = `Open-Meteo · Itapecerica da Serra, SP · ${current.time || 'atualizado agora'}`;
       })
       .catch(() => {
         badge.className = 'badge badge-mock';
